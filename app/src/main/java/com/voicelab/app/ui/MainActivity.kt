@@ -210,7 +210,7 @@ class MainActivity : AppCompatActivity() {
             db.taskDao().insertSentence(Sentence(0, text, source, System.currentTimeMillis()))
 
             var usedKimi = true
-            val parses: List<KimiClient.KimiParse>
+            var parses: List<KimiClient.KimiParse> = emptyList()
 
             try {
                 parses = KimiClient.parse(this@MainActivity, text, fmtDate(System.currentTimeMillis()))
