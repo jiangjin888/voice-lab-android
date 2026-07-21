@@ -9,7 +9,7 @@ data class TaskEntity(
     val content: String,
     val scheduledTime: Long?,   // epoch millis, null = 无计划时间
     val scheduledText: String?, // 展示用，如 "7月21日(周二) 09:00"
-    val status: String,         // todo / done / fail
+    var status: String,         // todo / done / fail
     val expStart: String?,      // 实验开始 HH:mm
     val expEnd: String?,        // 实验结束 HH:mm
     val source: String,         // voice / text

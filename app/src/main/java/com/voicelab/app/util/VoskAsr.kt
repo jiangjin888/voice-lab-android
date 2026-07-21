@@ -3,7 +3,6 @@ package com.voicelab.app.util
 import android.content.Context
 import java.io.IOException
 import org.json.JSONObject
-import org.vosk.LibVosk
 import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.RecognitionListener
@@ -35,13 +34,6 @@ class VoskAsr(private val ctx: Context) {
         if (initialized || loading) return
         loading = true
         callback.onStatus("正在加载离线语音模型…")
-        try {
-            LibVosk.load()
-        } catch (e: Throwable) {
-            loading = false
-            callback.onError("加载 Vosk 原生库失败：${e.message}")
-            return
-        }
         StorageService.unpack(ctx, "model-zh-cn", "model",
             object : StorageService.Callback<Model> {
                 override fun onComplete(result: Model?) {
