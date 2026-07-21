@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">语音实验记录助手</string>
+
+    <string-array name="status_entries">
+        <item>待完成</item>
+        <item>已完成</item>
+        <item>未完成</item>
+    </string-array>
+    <string-array name="status_values">
+        <item>todo</item>
+        <item>done</item>
+        <item>fail</item>
+    </string-array>
+
+    <string name="notif_channel_id">voicelab_reminder</string>
+    <string name="notif_channel_name">实验提醒</string>
+</resources>
