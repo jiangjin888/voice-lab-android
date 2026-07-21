@@ -42,15 +42,16 @@ class VoskAsr(private val ctx: Context) {
             return
         }
         StorageService.unpack(ctx, "model-zh-cn", "model",
-            object : StorageService.OnModelUnpackedListener {
-                override fun onModelUnpacked(m: Model?) {
-                    model = m
+            object : StorageService.Callback<Model> {
+                override fun onComplete(result: Model?) {
+                    model = result
                     initialized = true
                     loading = false
                     callback.onStatus("离线模型就绪")
                 }
-
-                override fun onError(e: Exception?) {
+            },
+            object : StorageService.Callback<IOException> {
+                override fun onComplete(e: IOException?) {
                     loading = false
                     callback.onError(
                         "离线模型加载失败：${e?.message}\n请把 vosk-model-small-cn-0.22 解压后重命名为 model-zh-cn，" +
@@ -65,7 +66,7 @@ class VoskAsr(private val ctx: Context) {
         if (!initialized) { init(callback); return }
         val m = model ?: run { init(callback); return }
         if (speechService == null) {
-            speechService = SpeechService(Recognizer(m, 16000.0f), 16000)
+            speechService = SpeechService(Recognizer(m, 16000.0f), 16000.0f)
         }
         callback.onStatus("聆听中…说完点“停止”")
         speechService?.startListening(object : RecognitionListener {
