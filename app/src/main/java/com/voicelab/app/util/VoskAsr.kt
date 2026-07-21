@@ -1,6 +1,7 @@
 package com.voicelab.app.util
 
 import android.content.Context
+import java.io.IOException
 import org.json.JSONObject
 import org.vosk.LibVosk
 import org.vosk.Model
