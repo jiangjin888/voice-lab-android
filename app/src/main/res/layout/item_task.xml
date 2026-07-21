@@ -7,10 +7,12 @@
     android:padding="12dp"
     android:layout_marginBottom="8dp">
 
+    <!-- 标题行：实验/任务名称 + 来源标签 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <TextView
             android:id="@+id/itemContent"
@@ -27,86 +29,83 @@
             android:textSize="12sp"
             android:textColor="@color/primary"
             android:background="#e0e7ff"
-            android:padding="2dp"
+            android:padding="2dp 6dp"
             android:layout_marginStart="6dp" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/itemScheduled"
+    <!-- 参数表格：标签在左，数值/输入框在右 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="13sp"
-        android:textColor="@color/muted"
-        android:layout_marginTop="4dp" />
+        android:orientation="vertical"
+        android:layout_marginTop="10dp"
+        android:divider="@drawable/divider_horizontal"
+        android:showDividers="middle">
 
+        <!-- 计划时间 -->
+        <LinearLayout style="@style/ParamRow">
+            <TextView style="@style/ParamLabel" android:text="计划时间" />
+            <TextView
+                android:id="@+id/itemScheduled"
+                style="@style/ParamValue"
+                android:hint="未设置" />
+        </LinearLayout>
+
+        <!-- 实验开始 -->
+        <LinearLayout style="@style/ParamRow">
+            <TextView style="@style/ParamLabel" android:text="实验开始" />
+            <EditText
+                android:id="@+id/itemExpStart"
+                style="@style/ParamInput"
+                android:hint="HH:mm" />
+            <TextView style="@style/ParamUnit" android:text="" />
+        </LinearLayout>
+
+        <!-- 实验结束 -->
+        <LinearLayout style="@style/ParamRow">
+            <TextView style="@style/ParamLabel" android:text="实验结束" />
+            <EditText
+                android:id="@+id/itemExpEnd"
+                style="@style/ParamInput"
+                android:hint="HH:mm" />
+            <TextView style="@style/ParamUnit" android:text="" />
+        </LinearLayout>
+
+        <!-- 状态 -->
+        <LinearLayout style="@style/ParamRow">
+            <TextView style="@style/ParamLabel" android:text="状态" />
+            <Spinner
+                android:id="@+id/itemStatus"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:entries="@array/status_entries"
+                android:background="@android:drawable/btn_dropdown" />
+        </LinearLayout>
+
+        <!-- 标签 -->
+        <LinearLayout style="@style/ParamRow">
+            <TextView style="@style/ParamLabel" android:text="标签" />
+            <TextView
+                android:id="@+id/itemTags"
+                style="@style/ParamValue"
+                android:hint="无" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 操作按钮 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="6dp">
+        android:layout_marginTop="10dp">
 
-        <TextView
+        <Button
+            android:id="@+id/itemDelete"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="状态："
-            android:textSize="13sp" />
-
-        <Spinner
-            android:id="@+id/itemStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:entries="@array/status_entries"
-            android:minHeight="40dp" />
+            android:layout_height="40dp"
+            android:text="删除"
+            android:textSize="12sp" />
     </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="6dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="实验："
-            android:textSize="13sp" />
-
-        <EditText
-            android:id="@+id/itemExpStart"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="开始 HH:mm"
-            android:inputType="time"
-            android:textSize="13sp"
-            android:minHeight="40dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="至"
-            android:textSize="13sp"
-            android:layout_marginHorizontal="4dp" />
-
-        <EditText
-            android:id="@+id/itemExpEnd"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="结束 HH:mm"
-            android:inputType="time"
-            android:textSize="13sp"
-            android:minHeight="40dp" />
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/itemDelete"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:text="删除"
-        android:textSize="12sp"
-        android:layout_marginTop="6dp" />
 
 </LinearLayout>

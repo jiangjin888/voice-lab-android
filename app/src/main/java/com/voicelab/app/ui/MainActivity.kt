@@ -210,47 +210,60 @@ class MainActivity : AppCompatActivity() {
             db.taskDao().insertSentence(Sentence(0, text, source, System.currentTimeMillis()))
 
             var usedKimi = true
-            var createTask: Boolean
-            var content: String
-            var scheduled: Long?
-            var scheduledText: String?
-            var expStart: String?
-            var expEnd: String?
+            val parses: List<KimiClient.KimiParse>
 
             try {
-                val k = KimiClient.parse(this@MainActivity, text, fmtDate(System.currentTimeMillis()))
-                usedKimi = true
-                createTask = k.isTask
-                content = k.title.ifBlank { text }
-                scheduled = k.planTime
-                scheduledText = k.planTimeText
-                expStart = k.expStart
-                expEnd = k.expEnd
+                parses = KimiClient.parse(this@MainActivity, text, fmtDate(System.currentTimeMillis()))
             } catch (e: Exception) {
-                // Kimi 不可用（无 Key / 网络错误）→ 本地规则兜底
+                // Kimi 不可用（无 Key / 网络错误）→ 本地规则兜底，只返回一条
                 usedKimi = false
                 val r = TimeParser.parse(text)
-                createTask = r.createTask
-                content = r.content.ifBlank { text }
-                scheduled = r.scheduled
-                scheduledText = r.scheduledText
-                expStart = r.expStart
-                expEnd = r.expEnd
+                parses = listOf(
+                    KimiClient.KimiParse(
+                        isTask = r.createTask,
+                        title = r.content.ifBlank { text },
+                        planTime = r.scheduled,
+                        planTimeText = r.scheduledText,
+                        expStart = r.expStart,
+                        expEnd = r.expEnd,
+                        summary = null,
+                        tags = emptyList()
+                    )
+                )
                 withContext(Dispatchers.Main) {
                     diag("Kimi 解析失败，已回退本地规则：${e.message}")
                 }
             }
 
-            if (createTask) {
-                val task = TaskEntity(0, content, scheduled, scheduledText, "todo", expStart, expEnd, source, System.currentTimeMillis())
-                val id = db.taskDao().insertTask(task)
-                if (scheduled != null) AlarmScheduler.schedule(this@MainActivity, task.copy(id = id))
-                withContext(Dispatchers.Main) {
-                    toast("已创建任务${if (scheduled != null) "（已设提醒 ${scheduledText}）" else ""}：$content")
-                }
-            } else {
+            val tasks = parses.filter { it.isTask }
+            if (tasks.isEmpty()) {
                 withContext(Dispatchers.Main) {
                     toast("已记录${if (!usedKimi) "（本地解析，Kimi 不可用）" else ""}")
+                }
+            } else {
+                var createdCount = 0
+                var alarmCount = 0
+                for (k in tasks) {
+                    val task = TaskEntity(
+                        0,
+                        k.title,
+                        k.planTime,
+                        k.planTimeText,
+                        "todo",
+                        k.expStart,
+                        k.expEnd,
+                        source,
+                        System.currentTimeMillis()
+                    )
+                    val id = db.taskDao().insertTask(task)
+                    createdCount++
+                    if (k.planTime != null) {
+                        AlarmScheduler.schedule(this@MainActivity, task.copy(id = id))
+                        alarmCount++
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    toast("已智能编排 ${createdCount} 条任务/实验${if (alarmCount > 0) "（${alarmCount} 条已设提醒）" else ""}")
                 }
             }
             withContext(Dispatchers.Main) { renderAll() }
@@ -304,10 +317,10 @@ class MainActivity : AppCompatActivity() {
             val v = layoutInflater.inflate(R.layout.item_task, container, false)
             v.findViewById<TextView>(R.id.itemContent).text = task.content
             v.findViewById<TextView>(R.id.itemSource).text = if (task.source == "voice") "语音" else "文字"
-            v.findViewById<TextView>(R.id.itemScheduled).text =
-                if (task.scheduledText != null) "计划：${task.scheduledText}" else "无计划时间"
+            v.findViewById<TextView>(R.id.itemScheduled).text = task.scheduledText ?: "未设置"
             v.findViewById<EditText>(R.id.itemExpStart).setText(task.expStart ?: "")
             v.findViewById<EditText>(R.id.itemExpEnd).setText(task.expEnd ?: "")
+            v.findViewById<TextView>(R.id.itemTags).text = "无" // tags 字段暂未持久化，占位显示
 
             val spinner = v.findViewById<Spinner>(R.id.itemStatus)
             spinner.setSelection(values.indexOf(task.status).coerceAtLeast(0))
