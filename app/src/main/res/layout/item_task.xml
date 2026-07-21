@@ -29,7 +29,8 @@
             android:textSize="12sp"
             android:textColor="@color/primary"
             android:background="#e0e7ff"
-            android:padding="2dp 6dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
             android:layout_marginStart="6dp" />
     </LinearLayout>
 
