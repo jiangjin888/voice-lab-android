@@ -613,8 +613,8 @@ class MainActivity : AppCompatActivity() {
     // ---------- 设置（Kimi Key / 模型 / 测试连接 / 识别引擎）----------
     private fun openSettings() {
         val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 8, 0, 8) }
-        val kk = EditText(this).apply { hint = "Kimi API Key（不填则用本地规则解析）"; setText(Config.getKimiKey(this)) }
-        val km = EditText(this).apply { hint = "Kimi 模型（默认 moonshot-v1-8k）"; setText(Config.getKimiModel(this)) }
+        val kk = EditText(this).apply { hint = "Kimi API Key（不填则用本地规则解析）"; setText(Config.getKimiKey(this@MainActivity)) }
+        val km = EditText(this).apply { hint = "Kimi 模型（默认 moonshot-v1-8k）"; setText(Config.getKimiModel(this@MainActivity)) }
         val engine = Config.getAsrEngine(this)
         val rg = RadioGroup(this)
         val opts = listOf("auto" to "自动（系统优先，失败回退离线）", "system" to "仅系统识别（更准，需联网）", "offline" to "仅离线 Vosk（不联网）")
@@ -640,11 +640,11 @@ class MainActivity : AppCompatActivity() {
         }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(40, 20, 40, 20)
-            addView(TextView(this).apply { text = "Kimi API Key" }); addView(kk, lp)
-            addView(TextView(this).apply { text = "模型" }); addView(km, lp)
+            addView(TextView(this@MainActivity).apply { text = "Kimi API Key" }); addView(kk, lp)
+            addView(TextView(this@MainActivity).apply { text = "模型" }); addView(km, lp)
             addView(testBtn, lp)
             addView(status, lp)
-            addView(TextView(this).apply { text = "语音识别引擎" }); addView(rg, lp)
+            addView(TextView(this@MainActivity).apply { text = "语音识别引擎" }); addView(rg, lp)
         }
         AlertDialog.Builder(this).setTitle("设置（密钥仅存本机）")
             .setView(layout)
