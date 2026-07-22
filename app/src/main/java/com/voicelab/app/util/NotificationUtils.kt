@@ -27,6 +27,7 @@ object NotificationUtils {
         }
     }
 
+    /** 到点提醒 */
     fun showReminder(context: Context, taskId: Long, content: String) {
         ensureChannel(context)
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -53,5 +54,25 @@ object NotificationUtils {
             .addAction(android.R.drawable.ic_menu_save, "完成", donePi)
             .build()
         mgr.notify(taskId.toInt(), notif)
+    }
+
+    /** 次日跟进提醒：请确认昨日实验是否完成 */
+    fun showFollowup(context: Context, taskId: Long, content: String) {
+        ensureChannel(context)
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        val contentPi = PendingIntent.getActivity(
+            context, (taskId + 300000).toInt(), launch,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notif = NotificationCompat.Builder(context, context.getString(R.string.notif_channel_id))
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("📋 实验跟进")
+            .setContentText("请确认昨日实验「$content」是否完成")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(contentPi)
+            .build()
+        mgr.notify((taskId + 200000).toInt(), notif)
     }
 }

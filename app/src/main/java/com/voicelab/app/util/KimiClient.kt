@@ -13,8 +13,11 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 /**
- * 调用 Kimi（Moonshot）对话接口，把用户输入的一句话解析成结构化任务/实验记录列表。
- * 模型只输出 JSON 数组，我们再解析成 List<KimiParse>。
+ * 调用 Kimi（Moonshot）对话接口：
+ *  - parse：把用户一句话解析成结构化任务/实验列表（用于智能编排）
+ *  - summarize：按用户自定义指令，把一天的实验记录整理成表格（用于今日总结）
+ *  - testConnection：检测 Key 是否有效、接口是否可用
+ * 模型仅输出 JSON，我们解析成对应结构。
  */
 object KimiClient {
 
@@ -43,7 +46,21 @@ object KimiClient {
 - 若用户只说了一件事，返回只含一个对象的数组。
 """.trimIndent()
 
-    /** 解析结果 */
+    private val SUM_SYS_PROMPT = """
+你是实验记录整理助手，要把一天的实验语音/文字记录整理成一个 Excel 风格的表格。
+请输出一个 JSON 对象（不要解释，不要 markdown 代码块）：
+{
+  "title": "表格标题",
+  "columns": ["列名1", "列名2", "列名3", ...],
+  "rows": [ ["单元格", "单元格", "单元格"], ... ]
+}
+要求：
+- columns 是列名数组，rows 中每个子数组长度必须与 columns 长度一致；
+- 列数、内容完全按用户的总结要求来；
+- 只输出 JSON。
+""".trimIndent()
+
+    /** 解析结果（一句话拆成多条任务/实验） */
     data class KimiParse(
         val isTask: Boolean,
         val title: String,
@@ -55,11 +72,14 @@ object KimiClient {
         val tags: List<String>
     )
 
-    /**
-     * @param text  待解析的中文语句
-     * @param today 形如 "2026-07-20"，用于帮助模型推算相对日期
-     * @return 解析出的任务/实验列表（至少返回一个元素，非任务时 isTask=false）
-     */
+    /** 今日总结结果 */
+    data class SummaryResult(
+        val title: String,
+        val columns: List<String>,
+        val rows: List<List<String>>
+    )
+
+    // ---------------- parse：一句话 → 多条任务 ----------------
     suspend fun parse(ctx: Context, text: String, today: String): List<KimiParse> {
         val key = Config.getKimiKey(ctx)
         if (key.isBlank()) throw Exception("未配置 Kimi API Key（点右上角设置填写）")
@@ -68,11 +88,60 @@ object KimiClient {
         val payload = JSONObject().apply {
             put("model", Config.getKimiModel(ctx))
             put("temperature", 0.3)
+            put("response_format", JSONObject().put("type", "json_object"))
             put("messages", JSONArray().apply {
                 put(JSONObject().put("role", "system").put("content", sys))
                 put(JSONObject().put("role", "user").put("content", "请解析这些话：$text"))
             })
         }
+        val content = postAndExtract(ctx, key, payload)
+        return parseContent(content, text)
+    }
+
+    // ---------------- summarize：记录 → 表格 ----------------
+    suspend fun summarize(ctx: Context, recordsText: String, instruction: String, today: String): SummaryResult {
+        val key = Config.getKimiKey(ctx)
+        if (key.isBlank()) throw Exception("未配置 Kimi API Key（点右上角设置填写）")
+
+        val userMsg = (if (instruction.isNotBlank())
+            "用户的总结要求：$instruction\n\n"
+        else
+            "默认要求：整理出【做了什么实验 / 是否完成 / 实验时间段(几点到几点)】三列。\n\n") +
+            "今天是 $today，实验记录如下：\n$recordsText"
+
+        val payload = JSONObject().apply {
+            put("model", Config.getKimiModel(ctx))
+            put("temperature", 0.3)
+            put("response_format", JSONObject().put("type", "json_object"))
+            put("messages", JSONArray().apply {
+                put(JSONObject().put("role", "system").put("content", SUM_SYS_PROMPT))
+                put(JSONObject().put("role", "user").put("content", userMsg))
+            })
+        }
+        val content = postAndExtract(ctx, key, payload)
+        return parseSummary(content)
+    }
+
+    // ---------------- testConnection：检测 Key 是否有效 ----------------
+    suspend fun testConnection(ctx: Context): Boolean {
+        val key = Config.getKimiKey(ctx)
+        if (key.isBlank()) return false
+        val payload = JSONObject().apply {
+            put("model", Config.getKimiModel(ctx))
+            put("temperature", 0.1)
+            put("messages", JSONArray().apply {
+                put(JSONObject().put("role", "user").put("content", "回复一个字：好"))
+            })
+        }
+        return try {
+            postAndExtract(ctx, key, payload).isNotBlank()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // ---------------- 内部：发请求并取出回答文本 ----------------
+    private suspend fun postAndExtract(ctx: Context, key: String, payload: JSONObject): String {
         val mediaType = "application/json".toMediaType()
         val req = Request.Builder()
             .url(URL)
@@ -80,37 +149,34 @@ object KimiClient {
             .addHeader("Content-Type", "application/json")
             .post(payload.toString().toRequestBody(mediaType))
             .build()
-
         val resp = withContext(Dispatchers.IO) { client.newCall(req).execute() }
         val body = resp.body?.string() ?: throw Exception("Kimi 接口空响应")
         if (!resp.isSuccessful) {
             throw Exception("Kimi API 错误 ${resp.code}：${body.take(200)}")
         }
         val j = JSONObject(body)
-        val content = j.getJSONArray("choices")
+        return j.getJSONArray("choices")
             .getJSONObject(0)
             .getJSONObject("message")
             .getString("content")
-        return parseContent(content, text)
     }
 
     private fun parseContent(content: String, fallbackText: String): List<KimiParse> {
-        // 去掉可能的 ```json 代码块包裹
         var s = content.trim()
         if (s.startsWith("```")) {
             s = s.substring(3)
             if (s.endsWith("```")) s = s.substring(0, s.length - 3)
-            s = s.replaceFirst(Regex("^json\\s*", RegexOption.IGNORE_CASE), "")
-            s = s.trim()
+            s = s.replaceFirst(Regex("^json\\s*", RegexOption.IGNORE_CASE), "").trim()
         }
-
+        // 去掉外层可能的对象包裹，只取数组
+        if (s.startsWith("{") && !s.startsWith("[")) {
+            s = tryExtractArray(s) ?: s
+        }
         val arr = try {
             JSONArray(s)
         } catch (_: Exception) {
-            // 模型有时只返回单个对象，兼容处理
-            JSONArray().put(JSONObject(s))
+            try { JSONArray().put(JSONObject(s)) } catch (_: Exception) { JSONArray() }
         }
-
         val result = mutableListOf<KimiParse>()
         for (i in 0 until arr.length()) {
             val j = arr.getJSONObject(i)
@@ -134,6 +200,40 @@ object KimiClient {
             )
         }
         return result
+    }
+
+    private fun parseSummary(content: String): SummaryResult {
+        var s = content.trim()
+        if (s.startsWith("```")) {
+            s = s.substring(3)
+            if (s.endsWith("```")) s = s.substring(0, s.length - 3)
+            s = s.replaceFirst(Regex("^json\\s*", RegexOption.IGNORE_CASE), "").trim()
+        }
+        val obj = try { JSONObject(s) } catch (_: Exception) {
+            // 有些模型会在对象外层再套引号，尝试抽取第一个 JSON 对象
+            val i = s.indexOf("{"); val j = s.lastIndexOf("}")
+            if (i >= 0 && j > i) JSONObject(s.substring(i, j + 1)) else JSONObject()
+        }
+        val title = obj.optString("title", "实验记录总结")
+        val cols = mutableListOf<String>()
+        obj.optJSONArray("columns")?.let { ca ->
+            for (k in 0 until ca.length()) cols.add(ca.getString(k))
+        }
+        val rows = mutableListOf<List<String>>()
+        obj.optJSONArray("rows")?.let { ra ->
+            for (k in 0 until ra.length()) {
+                val r = ra.getJSONArray(k)
+                val row = mutableListOf<String>()
+                for (m in 0 until r.length()) row.add(r.optString(m, ""))
+                rows.add(row)
+            }
+        }
+        return SummaryResult(title, cols, rows)
+    }
+
+    private fun tryExtractArray(s: String): String? {
+        val i = s.indexOf("["); val j = s.lastIndexOf("]")
+        return if (i >= 0 && j > i) s.substring(i, j + 1) else null
     }
 
     private fun parseIso(s: String): Long? {

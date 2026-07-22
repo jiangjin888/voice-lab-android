@@ -24,6 +24,11 @@ class AlarmReceiver : BroadcastReceiver() {
                     mgr.cancel(taskId.toInt())
                 }
             }
+            "ACTION_FOLLOWUP" -> {
+                // 次日跟进提醒：发通知，用户点开 App 后由 MainActivity 弹窗追问
+                val content = intent.getStringExtra("content") ?: "昨日实验"
+                NotificationUtils.showFollowup(context, taskId, content)
+            }
             else -> {
                 val content = intent.getStringExtra("content") ?: "时间到了，请查看实验任务"
                 NotificationUtils.showReminder(context, taskId, content)
